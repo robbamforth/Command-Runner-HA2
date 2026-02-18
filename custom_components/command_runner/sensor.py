@@ -1,12 +1,11 @@
 """Sensor platform for Command Runner."""
 
 import logging
-
 from datetime import datetime, timezone
 
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -15,6 +14,7 @@ from . import CommandRunnerCoordinator
 _LOGGER = logging.getLogger(__name__)
 
 DOMAIN = "command_runner"
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -33,13 +33,22 @@ async def async_setup_entry(
         CommandRunnerProcessingSensor(coordinator, entry),
         CommandRunnerAPIKeysSensor(coordinator, entry),
         CommandRunnerLastRequestSensor(coordinator, entry),
-        # New sensors for last execution
+        # Last execution sensors
         CommandRunnerLastCommandNameSensor(coordinator, entry),
         CommandRunnerLastCommandStatusSensor(coordinator, entry),
         CommandRunnerLastCommandOutputSensor(coordinator, entry),
     ]
 
-    async_add_entities(entities)
+    # Add sensors for commands that are marked as kind == "sensor"
+    for command in coordinator.data:
+        if command.get("kind") == "sensor":
+            entities.append(CommandRunnerCommandSensor(coordinator, command, entry))
+
+    #async_add_entities(entities)
+    _LOGGER.debug("Creating %d sensor entities (%d command sensors)",
+                  len(entities),
+                  sum(1 for e in entities if isinstance(e, CommandRunnerCommandSensor)))
+    async_add_entities(entities, update_before_add=True)
 
 
 class CommandRunnerStatusSensor(CoordinatorEntity, SensorEntity):
@@ -47,7 +56,7 @@ class CommandRunnerStatusSensor(CoordinatorEntity, SensorEntity):
 
     def __init__(self, coordinator: CommandRunnerCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
-        self._attr_name = f"Command Runner Status"
+        self._attr_name = "Command Runner Status"
         self._attr_unique_id = f"{entry.entry_id}_status"
         self._attr_icon = "mdi:server"
 
@@ -73,7 +82,7 @@ class CommandRunnerVersionSensor(CoordinatorEntity, SensorEntity):
 
     def __init__(self, coordinator: CommandRunnerCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
-        self._attr_name = f"Command Runner Version"
+        self._attr_name = "Command Runner Version"
         self._attr_unique_id = f"{entry.entry_id}_version"
         self._attr_icon = "mdi:information"
 
@@ -99,7 +108,7 @@ class CommandRunnerPortSensor(CoordinatorEntity, SensorEntity):
 
     def __init__(self, coordinator: CommandRunnerCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
-        self._attr_name = f"Command Runner Port"
+        self._attr_name = "Command Runner Port"
         self._attr_unique_id = f"{entry.entry_id}_port"
         self._attr_icon = "mdi:ethernet"
 
@@ -125,7 +134,7 @@ class CommandRunnerUptimeSensor(CoordinatorEntity, SensorEntity):
 
     def __init__(self, coordinator: CommandRunnerCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
-        self._attr_name = f"Command Runner Uptime"
+        self._attr_name = "Command Runner Uptime"
         self._attr_unique_id = f"{entry.entry_id}_uptime"
         self._attr_icon = "mdi:clock-outline"
         self._attr_native_unit_of_measurement = "s"
@@ -164,7 +173,7 @@ class CommandRunnerTotalRequestsSensor(CoordinatorEntity, SensorEntity):
 
     def __init__(self, coordinator: CommandRunnerCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
-        self._attr_name = f"Command Runner Total Requests"
+        self._attr_name = "Command Runner Total Requests"
         self._attr_unique_id = f"{entry.entry_id}_total_requests"
         self._attr_icon = "mdi:counter"
         self._attr_state_class = "total_increasing"
@@ -191,7 +200,7 @@ class CommandRunnerProcessingSensor(CoordinatorEntity, SensorEntity):
 
     def __init__(self, coordinator: CommandRunnerCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
-        self._attr_name = f"Command Runner Requests Processing"
+        self._attr_name = "Command Runner Requests Processing"
         self._attr_unique_id = f"{entry.entry_id}_requests_processing"
         self._attr_icon = "mdi:cog"
 
@@ -217,7 +226,7 @@ class CommandRunnerAPIKeysSensor(CoordinatorEntity, SensorEntity):
 
     def __init__(self, coordinator: CommandRunnerCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
-        self._attr_name = f"Command Runner API Keys Configured"
+        self._attr_name = "Command Runner API Keys Configured"
         self._attr_unique_id = f"{entry.entry_id}_api_keys_configured"
         self._attr_icon = "mdi:key"
 
@@ -243,7 +252,7 @@ class CommandRunnerLastRequestSensor(CoordinatorEntity, SensorEntity):
 
     def __init__(self, coordinator: CommandRunnerCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
-        self._attr_name = f"Command Runner Last Request"
+        self._attr_name = "Command Runner Last Request"
         self._attr_unique_id = f"{entry.entry_id}_last_request"
         self._attr_icon = "mdi:clock-check"
         self._attr_device_class = SensorDeviceClass.TIMESTAMP
@@ -272,7 +281,7 @@ class CommandRunnerLastCommandNameSensor(CoordinatorEntity, SensorEntity):
 
     def __init__(self, coordinator: CommandRunnerCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
-        self._attr_name = f"Command Runner Last Command Name"
+        self._attr_name = "Command Runner Last Command Name"
         self._attr_unique_id = f"{entry.entry_id}_last_command_name"
         self._attr_icon = "mdi:text"
 
@@ -295,7 +304,7 @@ class CommandRunnerLastCommandStatusSensor(CoordinatorEntity, SensorEntity):
 
     def __init__(self, coordinator: CommandRunnerCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
-        self._attr_name = f"Command Runner Last Command Status"
+        self._attr_name = "Command Runner Last Command Status"
         self._attr_unique_id = f"{entry.entry_id}_last_command_status"
         self._attr_icon = "mdi:check-circle"
 
@@ -318,7 +327,7 @@ class CommandRunnerLastCommandStatusSensor(CoordinatorEntity, SensorEntity):
         status = self.coordinator.last_execution.get("status")
         if status == "Success":
             return "mdi:check-circle"
-        elif status == "Failed":
+        if status == "Failed":
             return "mdi:close-circle"
         return "mdi:help-circle"
 
@@ -328,7 +337,7 @@ class CommandRunnerLastCommandOutputSensor(CoordinatorEntity, SensorEntity):
 
     def __init__(self, coordinator: CommandRunnerCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
-        self._attr_name = f"Command Runner Last Command Output"
+        self._attr_name = "Command Runner Last Command Output"
         self._attr_unique_id = f"{entry.entry_id}_last_command_output"
         self._attr_icon = "mdi:text-box"
 
@@ -344,7 +353,7 @@ class CommandRunnerLastCommandOutputSensor(CoordinatorEntity, SensorEntity):
     @property
     def native_value(self):
         last_exec = self.coordinator.last_execution
-        
+
         # If success, return output
         if last_exec.get("status") == "Success":
             output = last_exec.get("output")
@@ -352,25 +361,25 @@ class CommandRunnerLastCommandOutputSensor(CoordinatorEntity, SensorEntity):
                 # Truncate if too long (state limit is 255 chars)
                 return output[:255] if len(output) > 255 else output
             return "No output"
-        
+
         # If failed, return error message
-        elif last_exec.get("status") == "Failed":
+        if last_exec.get("status") == "Failed":
             error = last_exec.get("error")
             if error:
                 return error[:255] if len(error) > 255 else error
             return "Unknown error"
-        
+
         return "None"
 
     @property
     def extra_state_attributes(self):
         """Return additional attributes."""
         last_exec = self.coordinator.last_execution
-        attrs = {}
-        
+        attrs: dict = {}
+
         if last_exec.get("exit_code") is not None:
             attrs["exit_code"] = last_exec.get("exit_code")
-        
+
         # Store full output/error in attributes if it was truncated
         if last_exec.get("status") == "Success":
             full_output = last_exec.get("output")
@@ -380,5 +389,62 @@ class CommandRunnerLastCommandOutputSensor(CoordinatorEntity, SensorEntity):
             full_error = last_exec.get("error")
             if full_error and len(full_error) > 255:
                 attrs["full_error"] = full_error
-        
+
         return attrs if attrs else None
+
+
+class CommandRunnerCommandSensor(SensorEntity):
+    """Standalone sensor for command output (not coordinator-driven)."""
+
+    _attr_icon = "mdi:console"
+    _attr_should_poll = True
+
+    def __init__(
+        self,
+        coordinator: CommandRunnerCoordinator,
+        command: dict,
+        entry: ConfigEntry,
+    ) -> None:
+        """Initialize the command sensor."""
+        self._coordinator = coordinator
+        self._entry = entry
+        self._command = command
+        self._command_name: str = command["name"]  # "Uptime2"
+        self._attr_name = f"Command Runner {self._command_name}"
+        self._attr_unique_id = f"{entry.entry_id}_sensor_{self._command_name}"
+
+    @property
+    def device_info(self):
+        return {
+            "identifiers": {(DOMAIN, self._coordinator.host)},
+            "name": f"Command Runner ({self._coordinator.host})",
+            "manufacturer": "Command Runner",
+            "model": "Mac Command Executor",
+        }
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            "command": self._command.get("name"),  # "Uptime2"
+            "raw_command": self._command.get("command"),  # "uptime"
+            "voice_trigger": self._command.get("voice", ""),
+        }
+
+    async def async_update(self) -> None:
+        """Fetch latest value from Command Runner."""
+        _LOGGER.debug("Polling sensor %s", self._command_name)
+        result = await self._coordinator.async_get_sensor_output(self._command_name)
+
+        _LOGGER.debug("Command sensor %s got result: %s", self._command_name, result)
+
+        if not result.get("success"):
+            _LOGGER.warning(
+                "Failed to update sensor '%s': %s",
+                self._command_name,
+                result.get("error", "Unknown error"),
+            )
+            return
+
+        output = (result.get("output") or "").strip()
+        self._attr_native_value = output[:255] if len(output) > 255 else output
+        _LOGGER.debug("Sensor %s updated to: %s", self._command_name, self._attr_native_value)
