@@ -1,0 +1,57 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Command Runner Setup",
+        "description": "Connect to your Mac running Command Runner. You must generate an API key in Command Runner Settings first.",
+        "data": {
+          "host": "IP Address",
+          "port": "Port",
+          "api_key": "API Key (Secret)"
+        },
+        "data_description": {
+          "host": "IP address of your Mac (e.g., 192.168.1.100)",
+          "port": "Port number (default: 8080)",
+          "api_key": "API key from Command Runner Settings (required)"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Command Runner",
+        "description": "Update the connection details for Command Runner on {host}",
+        "data": {
+          "host": "IP Address",
+          "port": "Port",
+          "api_key": "API Key (Secret)"
+        },
+        "data_description": {
+          "host": "IP address of your Mac (e.g., 192.168.1.100)",
+          "port": "Port number (default: 8080)",
+          "api_key": "API key from Command Runner Settings"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect. Check the IP address and port, and ensure Command Runner is running.",
+      "invalid_auth": "Invalid API key. Please check the key and try again.",
+      "no_api_keys": "Server has no API keys configured. Generate an API key in Command Runner Settings first.",
+      "unknown": "Unexpected error occurred"
+    },
+    "abort": {
+      "already_configured": "This Command Runner instance is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Command Runner Options",
+        "description": "Configure notification preferences",
+        "data": {
+          "show_notifications": "Show notifications when commands execute"
+        },
+        "data_description": {
+          "show_notifications": "Display persistent notifications with command results and output"
+        }
+      }
+    }
+  }
+}
