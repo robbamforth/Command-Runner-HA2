@@ -79,7 +79,7 @@ class CommandRunnerCoordinator(DataUpdateCoordinator):
         return {}
 
     async def _async_update_data(self):
-        """Fetch data from API endpoint."""
+        """Fetch command list and status data from API."""
         session = async_get_clientsession(self.hass)
 
         # Fetch commands list
@@ -94,7 +94,9 @@ class CommandRunnerCoordinator(DataUpdateCoordinator):
                     if response.status == 401:
                         raise UpdateFailed("Unauthorized: Invalid or missing API key")
                     if response.status == 403:
-                        raise UpdateFailed("Forbidden: Server has no API keys configured")
+                        raise UpdateFailed(
+                            "Forbidden: Server has no API keys configured"
+                        )
 
                     response.raise_for_status()
                     data = await response.json()
@@ -123,7 +125,9 @@ class CommandRunnerCoordinator(DataUpdateCoordinator):
                         else:
                             _LOGGER.warning("Failed to fetch status data")
                     else:
-                        _LOGGER.warning("Status endpoint returned %s", response.status)
+                        _LOGGER.warning(
+                            "Status endpoint returned %s", response.status
+                        )
         except Exception as err:  # pylint: disable=broad-except
             _LOGGER.warning("Error fetching status data: %s", err)
 
@@ -139,12 +143,17 @@ class CommandRunnerCoordinator(DataUpdateCoordinator):
                 url += f"?params={parameters}"
 
             async with async_timeout.timeout(30):
-                async with session.get(url, headers=self._get_headers()) as response:
+                async with session.get(
+                    url,
+                    headers=self._get_headers(),
+                ) as response:
                     if response.status == 401:
                         _LOGGER.error("Unauthorized: Invalid or missing API key")
                         result = {"success": False, "error": "Unauthorized"}
                     elif response.status == 403:
-                        _LOGGER.error("Forbidden: Server has no API keys configured")
+                        _LOGGER.error(
+                            "Forbidden: Server has no API keys configured"
+                        )
                         result = {"success": False, "error": "Forbidden"}
                     else:
                         response.raise_for_status()
@@ -161,7 +170,7 @@ class CommandRunnerCoordinator(DataUpdateCoordinator):
                 "exit_code": result.get("exitCode") if result.get("success") else None,
             }
 
-            # Trigger update for sensors
+            # Trigger update for sensors that depend on last_execution
             self.async_set_updated_data(self.data)
 
             return result
@@ -198,7 +207,10 @@ class CommandRunnerCoordinator(DataUpdateCoordinator):
             url = f"{self.base_url}/sensor/{command_name}"
 
             async with async_timeout.timeout(30):
-                async with session.get(url, headers=self._get_headers()) as response:
+                async with session.get(
+                    url,
+                    headers=self._get_headers(),
+                ) as response:
                     if response.status == 401:
                         _LOGGER.error(
                             "Unauthorized: Invalid or missing API key for sensor"
@@ -217,7 +229,6 @@ class CommandRunnerCoordinator(DataUpdateCoordinator):
         except aiohttp.ClientError as err:
             _LOGGER.error("Error fetching sensor output: %s", err)
             return {"success": False, "error": str(err)}
-
         except Exception as err:  # pylint: disable=broad-except
             _LOGGER.error("Unexpected error fetching sensor output: %s", err)
             return {"success": False, "error": str(err)}
